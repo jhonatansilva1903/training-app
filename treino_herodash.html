@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>HeroDash Gym — Semana de Treinos</title>
+  <meta name="theme-color" content="#0b0f1a">
+  <!-- Tailwind CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    :root {
+      --bg:#0b0f1a; 
+      --panel:#111827; 
+      --muted:#9ca3af; 
+      --line:#1f2937;
+      --text:#e5e7eb; 
+      --title:#f3f4f6; 
+      --c1:#22d3ee; 
+      --c2:#a78bfa; 
+      --ok:#34d399; 
+      --warn:#f59e0b;
+      --danger:#ef4444;
+      --radius:16px; 
+      --gap:16px;
+      --glow: 0 0 20px rgba(167,139,250,0.35), 0 0 40px rgba(34,211,238,0.25);
+    }
+    body { background: radial-gradient(1200px 800px at 80% -10%, rgba(167,139,250,0.08), transparent 60%), radial-gradient(800px 600px at 10% 10%, rgba(34,211,238,0.06), transparent 60%), var(--bg); color: var(--text);}
+    .card { background: linear-gradient(180deg, rgba(17,24,39,0.9), rgba(17,24,39,0.8)); border:1px solid var(--line); border-radius: var(--radius); box-shadow: 0 8px 20px rgba(0,0,0,0.25);}
+    .badge { background: linear-gradient(90deg, rgba(34,211,238,0.15), rgba(167,139,250,0.15)); border:1px solid rgba(167,139,250,0.25); }
+    .btn-primary { background: linear-gradient(90deg, var(--c1), var(--c2)); color:#0b0f1a; box-shadow: var(--glow); }
+    .btn-primary:hover { filter: brightness(1.07); }
+    .xpbar { height: 10px; background: #0f172a; border:1px solid #1f2937; border-radius: 999px; overflow: hidden; }
+    .xpfill { height: 100%; background: linear-gradient(90deg, var(--c1), var(--c2)); box-shadow: var(--glow); transition: width 300ms ease; }
+    .tab-active { background: linear-gradient(90deg, rgba(34,211,238,0.15), rgba(167,139,250,0.15)); border-color: rgba(167,139,250,0.35); }
+    .glass { background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); }
+    .title-gradient { background: linear-gradient(90deg, #e5e7eb, #a78bfa); -webkit-background-clip: text; background-clip: text; color: transparent; }
+    input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+    input[type=number] { -moz-appearance: textfield; }
+  </style>
+</head>
+<body class="min-h-screen">
+  <header class="max-w-6xl mx-auto p-4 md:p-6">
+    <div class="flex items-center justify-between gap-4">
+      <div>
+        <h1 class="text-2xl md:text-3xl font-black title-gradient">HeroDash Gym</h1>
+        <p class="text-sm text-gray-400">Programa semanal de treinos • Campos de carga e repetições • Barras de XP por exercício e por dia</p>
+      </div>
+      <div class="flex items-center gap-2">
+        <button id="resetWeek" class="px-3 py-2 rounded-xl border border-gray-700 text-gray-300 hover:bg-gray-800">Resetar Semana</button>
+        <a href="#" id="exportBtn" class="px-3 py-2 rounded-xl btn-primary font-semibold">Exportar Progresso</a>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-6xl mx-auto px-4 md:px-6 pb-12">
+    <!-- Tabs -->
+    <nav class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-2 mb-6">
+    </nav>
+
+    <!-- Day Summary -->
+    <section class="card p-4 md:p-6 mb-6">
+      <div class="flex items-start justify-between gap-4">
+        <div>
+          <h2 id="dayTitle" class="text-xl md:text-2xl font-bold">Segunda</h2>
+          <p class="text-sm text-gray-400">Meta: melhorar seus PRs com segurança. O progresso é calculado pelo volume (carga × repetições) em relação ao seu recorde.</p>
+        </div>
+        <span id="exerciseCount" class="badge px-3 py-1 rounded-lg text-xs uppercase tracking-wide">0 exercícios</span>
+      </div>
+      <div class="mt-4">
+        <div class="flex items-center justify-between text-xs mb-1 text-gray-400">
+          <span>XP total do dia</span>
+          <span id="dayXPLabel">0%</span>
+        </div>
+        <div class="xpbar"><div id="dayXP" class="xpfill w-0"></div></div>
+      </div>
+    </section>
+
+    <section id="cards" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6"></section>
+
+    <div class="mt-8 flex justify-end">
+      <button id="saveDay" class="px-4 py-3 rounded-2xl btn-primary font-bold">Salvar treino do dia</button>
+    </div>
+  </main>
+
+  <script>
+    // ===== Seed from CSV (mapped to days) =====
+    const SEED = {
+  "Segunda": [
+    "Remada curvada",
+    "Remada baixa fechada",
+    "Puxador alto",
+    "Elevação unilateral ",
+    "Rosca alternada ",
+    "Supported chest row",
+    "Bar cable row",
+    "Reverse grip pull down",
+    "Dumbbell lateral raises",
+    "Hammer Curls",
+    "Remada Banco",
+    "Remada aberta cabo",
+    "Supino halteres",
+    "Elevação lateral",
+    "Triceps pushdown",
+    "triceps francês corda"
+  ],
+  "Terça": [
+    "Supino com",
+    "halteres",
+    "Voador maquina ou cross over",
+    "Desenvolvimento c/ halteres",
+    "Elevação layeral",
+    "Pushdown",
+    "Bench Press",
+    "Incline Bench press",
+    "Cable Cross Over",
+    "Fly Machine",
+    "Hack squat",
+    "Leg curl",
+    "Standing calf raises",
+    "Leg Extension",
+    "Stiff"
+  ],
+  "Quarta": [
+    "Hack squat",
+    "Mesa flexora",
+    "Panturrilha sentado",
+    "Cadeira extensora",
+    "Stiff com halteres",
+    "Hack",
+    "Panturrilha em pé",
+    "Extensora",
+    "Supino reto com halter",
+    "Voador com halteres",
+    "Puxada alta romana",
+    "Elevação lateral",
+    "Rosca alternada com halteres",
+    "Crunch Cross"
+  ],
+  "Quinta": [
+    "Desenvolvimento halteres",
+    "Elevação Lateral",
+    "Overhead triceps",
+    "Cable pushdown",
+    "Rosca alternada",
+    "Shoulder press",
+    "Cable Curl",
+    "Abs Cable Crunch",
+    "Deadlift",
+    "Leg press",
+    "Extensora",
+    "Mesa flexora",
+    "Panturrilha sentado"
+  ],
+  "Sexta": [],
+  "Sábado": [],
+  "Domingo": []
+};
+
+    // ===== App State & Helpers =====
+    const STORAGE_KEY = "herodash_gym_v1";
+    const days = ["Segunda","Terça","Quarta","Quinta","Sexta","Sábado","Domingo"];
+    let state = loadState();
+
+    function loadState() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return { logs: {}, prs: {} };
+        return JSON.parse(raw);
+      } catch (e) {
+        console.warn("Falha ao ler localStorage", e);
+        return { logs: {}, prs: {} };
+      }
+    }
+    function saveState() { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+
+    // Compute volume and progress
+    function volume(load, reps) { return (Number(load)||0) * (Number(reps)||0); }
+    function targetFor(pr) {
+      // alvo = PR + 10% (mínimo +5 unidades)
+      const t = pr * 1.10;
+      return Math.max(t, pr + 5);
+    }
+    function progressPct(vol, pr) {
+      const target = targetFor(pr);
+      if (pr <= 0) return Math.min(100, Math.round((vol / Math.max(20, target)) * 100));
+      return Math.min(100, Math.round((vol / target) * 100));
+    }
+
+    // Build tabs
+    const nav = document.querySelector('nav');
+    days.forEach((d, idx) => {
+      const btn = document.createElement('button');
+      btn.className = "glass rounded-xl px-3 py-2 text-sm hover:bg-gray-800 border border-gray-700";
+      btn.textContent = d;
+      btn.dataset.day = d;
+      btn.onclick = () => setDay(d);
+      nav.appendChild(btn);
+    });
+
+    let currentDay = days[0];
+    setDay(currentDay);
+
+    function setDay(day) {
+      currentDay = day;
+      // update tab visuals
+      document.querySelectorAll('nav button').forEach(b => {
+        if (b.dataset.day === day) b.classList.add('tab-active');
+        else b.classList.remove('tab-active');
+      });
+      // update title
+      document.getElementById('dayTitle').textContent = day + (SEED[day]?.length ? " • " + (SEED[day][0] || "") : "");
+      // render cards
+      renderCards(day);
+      // refresh day XP
+      updateDayXP();
+    }
+
+    function renderCards(day) {
+      const cont = document.getElementById('cards');
+      cont.innerHTML = "";
+      const list = SEED[day] && SEED[day].length ? SEED[day] : [];
+      if (!list.length) {
+        cont.innerHTML = `<div class="col-span-full card p-6 text-gray-400">
+          Sem exercícios definidos para <b>${day}</b>. Você pode adicionar manualmente editando o arquivo ou usando o botão abaixo.
+          <div class="mt-4"><button class="px-3 py-2 rounded-xl border border-gray-700" onclick="addExercisePrompt()">Adicionar exercício</button></div>
+        </div>`;
+        document.getElementById('exerciseCount').textContent = "0 exercícios";
+        return;
+      }
+      document.getElementById('exerciseCount').textContent = `${list.length} exercícios`;
+
+      list.forEach((name, i) => {
+        const id = key(day, name);
+        const last = lastLog(id);
+        const pr = state.prs[id] || 0;
+        const vol = last ? last.volume : 0;
+        const pct = progressPct(vol, pr);
+
+        const card = document.createElement('div');
+        card.className = "card p-4 rounded-2xl";
+        card.innerHTML = `
+          <div class="flex items-start justify-between gap-2">
+            <div>
+              <h3 class="font-semibold text-lg">${name}</h3>
+              <p class="text-xs text-gray-400">PR: <span data-pr="value">${Math.round(pr)} volume</span></p>
+            </div>
+            <span class="badge px-2 py-1 rounded-md text-[10px] uppercase tracking-wide">${day}</span>
+          </div>
+
+          <div class="grid grid-cols-2 gap-3 mt-4">
+            <label class="flex flex-col text-sm">
+              <span class="text-gray-400">Carga (kg)</span>
+              <input type="number" step="0.5" min="0" class="mt-1 rounded-lg bg-[#0b1220] border border-gray-700 px-3 py-2"
+                value="${last ? last.load : ''}" data-id="${id}" data-field="load"/>
+            </label>
+            <label class="flex flex-col text-sm">
+              <span class="text-gray-400">Repetições</span>
+              <input type="number" step="1" min="0" class="mt-1 rounded-lg bg-[#0b1220] border border-gray-700 px-3 py-2"
+                value="${last ? last.reps : ''}" data-id="${id}" data-field="reps"/>
+            </label>
+          </div>
+
+          <div class="mt-4">
+            <div class="flex items-center justify-between text-xs mb-1 text-gray-400">
+              <span>XP do exercício</span>
+              <span data-pct="label">${pct}%</span>
+            </div>
+            <div class="xpbar"><div class="xpfill" data-pct="bar" style="width:${pct}%"></div></div>
+            <p class="text-xs text-gray-500 mt-2">Volume atual: <span data-vol="value">${Math.round(vol)}</span> • Próxima meta: <span data-target="value">${Math.round(targetFor(pr))}</span></p>
+          </div>
+
+          <div class="mt-4 flex gap-2 justify-end">
+            <button class="px-3 py-2 rounded-xl border border-gray-700 text-gray-300 hover:bg-gray-800" onclick="resetExercise('${id}')">Resetar</button>
+            <button class="px-3 py-2 rounded-xl btn-primary font-semibold" onclick="saveExercise('${id}','${name}','${day}')">Salvar</button>
+          </div>
+        `;
+        cont.appendChild(card);
+      });
+
+      // attach live update handlers
+      cont.querySelectorAll('input').forEach(inp => {
+        inp.addEventListener('input', onLiveChange);
+      });
+    }
+
+    function key(day, name) { return day + "::" + name; }
+    function lastLog(id) {
+      const logs = state.logs[id] || [];
+      return logs.length ? logs[logs.length - 1] : null;
+    }
+
+    function onLiveChange(e) {
+      const card = e.target.closest('.card');
+      const id = e.target.dataset.id;
+      const load = Number(card.querySelector('input[data-field="load"][data-id="'+id+'"]').value || 0);
+      const reps = Number(card.querySelector('input[data-field="reps"][data-id="'+id+'"]').value || 0);
+      const vol = volume(load, reps);
+      const pr = state.prs[id] || 0;
+      const pct = progressPct(vol, pr);
+
+      card.querySelector('[data-vol="value"]').textContent = Math.round(vol);
+      card.querySelector('[data-target="value"]').textContent = Math.round(targetFor(pr));
+      card.querySelector('[data-pct="label"]').textContent = pct + "%";
+      card.querySelector('[data-pct="bar"]').style.width = pct + "%";
+
+      updateDayXP(); // refresh header
+    }
+
+    function saveExercise(id, name, day) {
+      const card = Array.from(document.querySelectorAll('.card')).find(c => c.querySelector('h3')?.textContent === name);
+      if (!card) return;
+      const load = Number(card.querySelector('input[data-field="load"]').value || 0);
+      const reps = Number(card.querySelector('input[data-field="reps"]').value || 0);
+      const vol = volume(load, reps);
+      if (!state.logs[id]) state.logs[id] = [];
+      state.logs[id].push({ date: new Date().toISOString().slice(0,10), load, reps, volume: vol });
+      // update PR
+      state.prs[id] = Math.max(state.prs[id] || 0, vol);
+      saveState();
+      // refresh card visuals
+      const pr = state.prs[id];
+      const pct = progressPct(vol, pr);
+      card.querySelector('[data-pr="value"]').textContent = Math.round(pr) + " volume";
+      card.querySelector('[data-vol="value"]').textContent = Math.round(vol);
+      card.querySelector('[data-target="value"]').textContent = Math.round(targetFor(pr));
+      card.querySelector('[data-pct="label"]').textContent = pct + "%";
+      card.querySelector('[data-pct="bar"]').style.width = pct + "%";
+      updateDayXP();
+    }
+
+    function resetExercise(id) {
+      delete state.logs[id];
+      delete state.prs[id];
+      saveState();
+      // re-render current day
+      setDay(currentDay);
+    }
+
+    function updateDayXP() {
+      const cards = document.querySelectorAll('#cards .card');
+      let sum = 0, n = 0;
+      cards.forEach(card => {
+        const pct = parseInt(card.querySelector('[data-pct="label"]').textContent) || 0;
+        sum += pct; n += 1;
+      });
+      const avg = n ? Math.round(sum / n) : 0;
+      document.getElementById('dayXP').style.width = avg + '%';
+      document.getElementById('dayXPLabel').textContent = avg + '%';
+    }
+
+    // Save all day
+    document.getElementById('saveDay').onclick = () => {
+      const list = SEED[currentDay] || [];
+      list.forEach(name => {
+        const id = key(currentDay, name);
+        const cont = Array.from(document.querySelectorAll('#cards .card')).find(c => c.querySelector('h3').textContent === name);
+        if (!cont) return;
+        const load = Number(cont.querySelector('input[data-field="load"]').value || 0);
+        const reps = Number(cont.querySelector('input[data-field="reps"]').value || 0);
+        const vol = volume(load, reps);
+        if (!state.logs[id]) state.logs[id] = [];
+        state.logs[id].push({ date: new Date().toISOString().slice(0,10), load, reps, volume: vol });
+        state.prs[id] = Math.max(state.prs[id] || 0, vol);
+      });
+      saveState();
+      setDay(currentDay);
+      alert('Treino salvo!');
+    };
+
+    // Reset week
+    document.getElementById('resetWeek').onclick = () => {
+      if (confirm('Tem certeza que deseja limpar todos os dados da semana?')) {
+        state = { logs: {}, prs: {} };
+        saveState();
+        setDay(currentDay);
+      }
+    };
+
+    // Export progress
+    document.getElementById('exportBtn').onclick = (e) => {
+      e.preventDefault();
+      const blob = new Blob([JSON.stringify(state, null, 2)], {type: 'application/json'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'progresso_herodash_gym.json';
+      a.click();
+      URL.revokeObjectURL(url);
+    };
+
+    // Add exercise manually
+    function addExercisePrompt() {
+      const name = prompt('Nome do exercício para ' + currentDay + ':');
+      if (!name) return;
+      SEED[currentDay] = SEED[currentDay] || [];
+      SEED[currentDay].push(name);
+      setDay(currentDay);
+    }
+  </script>
+</body>
+</html>
